@@ -1,7 +1,4 @@
 # Z1 Manual Alignment (BigStitcher) — Code Ocean Capsule
-![Python](https://img.shields.io/badge/Python-3.10%2B-blue)
-![License](https://img.shields.io/badge/License-MIT-green)
-![Code%20Style](https://img.shields.io/badge/code%20style-black-000000.svg)
 
 Manual alignment capsule for Z1 datasets using BigStitcher (phase correlation + solver).
 The only required input is the **S3 prefix to a processed dataset**.
@@ -60,13 +57,3 @@ Given `input_prefix` (processed dataset root prefix), the capsule:
 - `/results/bigstitcher.xml`
 - `/results/metrics/` mirrored QC artifacts (CSV, plots, etc.)
 - Additional run artifacts produced by BigStitcher / the capsule.
-
-## Running (CLI)
-
-Inside the capsule container, the entrypoint expects arguments in this order:
-
-```bash
-python -u run \
-  "<input_prefix>" \
-  "<max_error>" "<relative_threshold>" "<absolute_threshold>" \
-  "<max_shift>" "<min_r>"
