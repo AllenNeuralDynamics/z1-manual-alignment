@@ -52,9 +52,9 @@ Given `input_prefix` (processed dataset root prefix), the capsule:
 
 ### S3 Outputs
 - Updated BigStitcher XMLs written back under:
-  - `${input_prefix}image_tile_alignment/` (and additional channel-specific XMLs as applicable)
+  - `s3://aind-open-data/processed_prefix/image_tile_alignment/` (and additional channel-specific XMLs as applicable)
 - Alignment QC metrics written under:
-  - `${input_prefix}image_tile_alignment/alignment_metrics/`
+  - `s3://aind-open-data/processed_prefix/image_tile_alignment/alignment_metrics/`
 
 ### Code Ocean `/results` outputs
 - `/results/bigstitcher.xml`
