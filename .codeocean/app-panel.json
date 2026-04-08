@@ -1,0 +1,59 @@
+{
+	"version": 1,
+	"parameters": [
+		{
+			"id": "FH3KS4wHe308nAEK",
+			"name": "Input Prefix",
+			"description": "Format - s3://aind-open-data/processed_prefix/",
+			"type": "text",
+			"value_type": "string",
+			"default_value": "s3://aind-open-data/HCR_823476-s1-ls2_2025-11-18_00-00-00_processed_2025-11-19_22-11-11/",
+			"required": true
+		},
+		{
+			"id": "NGxZQo7wlpv5bB57",
+			"name": "Proteomics Solver - Max Error",
+			"description": "Default value - 3.0",
+			"type": "text",
+			"value_type": "number",
+			"minimum": 0,
+			"maximum": 100
+		},
+		{
+			"id": "vh9uGPtWBvyFUeNN",
+			"name": "Proteomics Solver - Relative Threshold",
+			"description": "Default value - 2.5",
+			"type": "text",
+			"value_type": "number",
+			"minimum": 0,
+			"maximum": 100
+		},
+		{
+			"id": "c1EKGqz81EXLcxDw",
+			"name": "Proteomics Solver - Absolute Threshold",
+			"description": "Default value - 3.5",
+			"type": "text",
+			"value_type": "number",
+			"minimum": 0,
+			"maximum": 100
+		},
+		{
+			"id": "bsdptEvY3238DTzD",
+			"name": "HCR Phase Correlation - Max Shift",
+			"description": "Default value ~32 (varies per dataset)",
+			"type": "text",
+			"value_type": "number",
+			"minimum": 0,
+			"maximum": 100
+		},
+		{
+			"id": "xXKQYgucjdGFdj29",
+			"name": "HCR Phase Correlation - Min R",
+			"description": "Default value - 0.6",
+			"type": "text",
+			"value_type": "number",
+			"minimum": 0,
+			"maximum": 100
+		}
+	]
+}
