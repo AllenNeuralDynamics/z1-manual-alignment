@@ -61,12 +61,3 @@ Given `input_prefix` (processed dataset root prefix), the capsule:
 - `/results/metrics/` mirrored QC artifacts (CSV, plots, etc.)
 - Additional run artifacts produced by BigStitcher / the capsule.
 
-## Running (CLI)
-
-Inside the capsule container, the entrypoint expects arguments in this order:
-
-```bash
-python -u run \
-  "<input_prefix>" \
-  "<max_error>" "<relative_threshold>" "<absolute_threshold>" \
-  "<max_shift>" "<min_r>"
