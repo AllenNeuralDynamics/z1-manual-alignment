@@ -10,7 +10,7 @@ class CorrAndShiftPlots:
         self.out_s3_prefix = out_s3_prefix
         self.s3 = s3
 
-    @staticmethod 
+    @staticmethod  
     def _axis_min_max(arr: np.ndarray):
         if arr.size == 0:
             return (-1.0, 1.0)

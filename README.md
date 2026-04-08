@@ -13,7 +13,7 @@ The only required input is the **S3 prefix to a processed dataset**.
 
 Given `input_prefix` (processed dataset root prefix), the capsule:
 
-1. Validates the bucket is `aind-open-data`.
+1. Validates the bucket is `aind-open-data`. 
 2. Finds the original BigStitcher XML under:
    - `s3://aind-open-data/processed_prefix/image_tile_alignment/`
    and downloads it locally to `/results/bigstitcher.xml`.

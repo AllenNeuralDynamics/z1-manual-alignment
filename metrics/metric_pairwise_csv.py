@@ -10,7 +10,7 @@ class PairwiseCSVWriter:
         self.s3 = s3
 
     def write( 
-        self,
+        self, 
         rows_sorted,
         dropped_pairs: Optional[Set[Tuple[int, int]]] = None,
     ) -> str:

@@ -13,7 +13,7 @@ from metrics.utils import (
     mirror_s3_prefix_to_results,
     list_results_tree,
     _safe_read_json,
-    create_s3_client,
+    create_s3_client, 
     load_xml_root,
     get_nominal_grid,
     extract_pairwise_rows,

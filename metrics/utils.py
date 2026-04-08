@@ -14,7 +14,7 @@ import xml.etree.ElementTree as ET
 # S3 + plotting helpers
 # ----------------------------
 
-def create_s3_client():
+def create_s3_client(): 
     return boto3.client("s3")
 
 
