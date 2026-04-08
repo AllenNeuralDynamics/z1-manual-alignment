@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+python /code/alignment_pipeline.py "$@" 2>&1 | tee /results/logs.txt
