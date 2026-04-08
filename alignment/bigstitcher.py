@@ -213,7 +213,7 @@ def main(
             output_location=str(output_big_stitcher_json),
             outputs={"output_file": str(output_big_stitcher_json)},
             code_url="",
-            code_version="0.0.0",
+            code_version="1.0.0",
             parameters={"stitching": stitching_command, "global_optimization": global_opt_command},
             notes="Running stitching and global optimization separately",
         )
@@ -224,7 +224,7 @@ def main(
         dest_processing=metadata_folder,
         input_prefix=input_prefix,
         processor_full_name="Sean Fite",
-        pipeline_version="0.0.0",
+        pipeline_version="1.0.0",
     )
 
 if __name__ == "__main__":
