@@ -12,7 +12,7 @@ set -euo pipefail  # Exit on error, undefined vars, pipe failures
 
 HOME=/root
 
-# Java/JVM Configuration
+# Java/JVM Configuration 
 JAVA_HEAP_SIZE="${JAVA_HEAP_SIZE:-24g}"
 SPARK_MASTER="${SPARK_MASTER:-local[20]}"
 SPARK_THREADS="${SPARK_THREADS:-20}"

@@ -11,7 +11,7 @@ class LinksGridPlot:
 
     def make_plot( 
         self,
-        rows,
+        rows, 
         setup_to_grid: Dict[int, Tuple[int, int, int]],
         dropped_pairs: Optional[Set[Tuple[int, int]]] = None,
     ) -> Optional[str]:

@@ -8,7 +8,7 @@ from urllib.parse import urlparse
 import boto3
 from botocore.exceptions import ClientError
 from packaging import version
-import xml.etree.ElementTree as ET
+import xml.etree.ElementTree as ET 
 from aind_data_schema.core.processing import (DataProcess, PipelineProcess,
                                               Processing)
 

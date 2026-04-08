@@ -5,7 +5,7 @@ import os
 import subprocess
 from pathlib import Path
 from time import time
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple 
 from aind_data_schema.core.processing import DataProcess, ProcessName
 
 """
