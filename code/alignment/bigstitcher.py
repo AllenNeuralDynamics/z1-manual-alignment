@@ -6,86 +6,37 @@ import subprocess
 from pathlib import Path
 from time import time
 from typing import List, Optional, Tuple 
-from aind_data_schema.core.processing import DataProcess, ProcessName
 
 """
 Computes stitching transformations using
 bigstitcher for SmartSPIM data structure
 """
 
-def get_estimated_downsample(
-    voxel_resolution: List[float], phase_corr_res: Tuple[float] = (8.0, 8.0, 4.0)
-) -> int:
-    """
-    Estimate the multiscale level (power-of-two downsampling) such that
-    the resolution at that level is at least the phase_corr_res in all axes.
+def main(processing_params):
+    path_to_data = processing_params["path_to_data"]
+    input_prefix = processing_params["input_prefix"]
+    local_xml_path = Path(processing_params["local_xml_path"])
+    acquisition_path = processing_params["acquisition_path"]
+    channel_wavelength = processing_params["channel_wavelength"]
+    stitching_channel_path = Path(processing_params["stitching_channel_path"])
+    voxel_resolution = processing_params["voxel_resolution"]
+    output_json_file = Path(processing_params["output_json_file"])
+    results_folder = Path(processing_params["results_folder"])
+    dataset_name = processing_params["dataset_name"]
+    max_error = processing_params["max_error"]
+    relative_threshold = processing_params["relative_threshold"]
+    absolute_threshold = processing_params["absolute_threshold"]
+    max_shift = processing_params["max_shift"]
+    min_r = processing_params["min_r"]
+    res_for_transforms = tuple(
+        processing_params.get("res_for_transforms", (0.19, 0.19, 0.85))
+    )
+    scale_for_transforms = processing_params.get("scale_for_transforms")
+    downsampled_scale = int(scale_for_transforms)
 
-    Parameters
-    ----------
-    voxel_resolution : List[float]
-        Resolution of the original image at level 0 (in XYZ order).
-    phase_corr_res : Tuple[float]
-        Target resolution for phase correlation (in XYZ order).
-
-    Returns
-    -------
-    int
-        Estimated downsample level (0 or higher).
-    """
-
-    levels = []
-    for vres, cres in zip(voxel_resolution, phase_corr_res):
-        if cres < vres:
-            raise ValueError(
-                "phase_corr_res must be greater than or equal to voxel_resolution."
-            )
-        ratio = cres / vres
-        levels.append(math.floor(math.log2(ratio)))
-
-    return max(levels)
-
-def main(
-    path_to_data,
-    input_prefix,
-    local_xml_path,
-    acquisition_path,
-    channel_wavelength,
-    stitching_channel_path,
-    voxel_resolution,
-    output_json_file,
-    results_folder,
-    dataset_name,
-    max_error,
-    relative_threshold,
-    absolute_threshold,
-    max_shift,
-    min_r,
-    res_for_transforms=(0.19, 0.19, 0.85),
-    scale_for_transforms=None,
-):
     """
     Computes image stitching with BigStitcher using Phase Correlation
     """
-    if not max_error:
-        max_error = 3.0
-
-    if not relative_threshold:
-        relative_threshold = 2.5
-    
-    if not absolute_threshold:
-        absolute_threshold = 3.5
-
-    if not scale_for_transforms:
-        scale_for_transforms = get_estimated_downsample(
-            voxel_resolution=voxel_resolution, phase_corr_res=res_for_transforms
-        )
-    
-    downsampled_scale = int(scale_for_transforms)
-    if not max_shift:
-        max_shift = 160 // (downsampled_scale + 1)
-    
-    if not min_r:
-        min_r = 0.6
 
     BIGSTITCHER_PATH = os.getenv("BIGSTITCHER_HOME")
 
@@ -200,31 +151,6 @@ def main(
 
     output_big_stitcher_json = (
         f"{results_folder}/{dataset_name}_stitch_channel_{channel_wavelength}_params.json"
-    )
-
-    data_processes = []
-    data_processes.append(
-        DataProcess(
-            name=ProcessName.IMAGE_TILE_ALIGNMENT,
-            software_version="e112363",
-            start_date_time=start_time,
-            end_date_time=end_time,
-            input_location=str(dataset_name),
-            output_location=str(output_big_stitcher_json),
-            outputs={"output_file": str(output_big_stitcher_json)},
-            code_url="",
-            code_version="2.0.0",
-            parameters={"stitching": stitching_command, "global_optimization": global_opt_command},
-            notes="Running stitching and global optimization separately",
-        )
-    )
-
-    utils.generate_processing(
-        data_processes=data_processes,
-        dest_processing=metadata_folder,
-        input_prefix=input_prefix,
-        processor_full_name="Sean Fite",
-        pipeline_version="2.0.0",
     )
 
 if __name__ == "__main__":

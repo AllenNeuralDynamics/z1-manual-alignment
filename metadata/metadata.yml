@@ -1,11 +1,4 @@
 metadata_version: 1
-name: z1-manual-alignment
-description: Z1 alignment capsule using Big Stitcher. This capsule is run manually.
-  The only required input parameter is the prefix to the processed dataset in s3.
-  This capsule writes over all existing alignment data at the prefix passed in. Empty
-  optional params assume default values. Run params are saved to - processing.json.
-  ***Input prefix param is compatible with aind-open-data bucket only.***
-tags:
-- Z1
+name: z1-alignment-bigstitcher
 authors:
 - name: Sean Fite
