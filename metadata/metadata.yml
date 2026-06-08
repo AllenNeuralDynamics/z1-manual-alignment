@@ -1,4 +1,6 @@
 metadata_version: 1
 name: z1-alignment-bigstitcher
+description: Alignment capsule running Big Stitcher phase correlation. See readme
+  for more info
 authors:
 - name: Sean Fite
