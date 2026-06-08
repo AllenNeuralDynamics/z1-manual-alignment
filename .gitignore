@@ -16,3 +16,4 @@ __pycache__/
 # Outputs / artifacts
 results/
 *.log
+.vscode

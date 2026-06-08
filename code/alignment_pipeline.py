@@ -1,10 +1,12 @@
 import os
 from pathlib import Path
 import sys
+import math
 from urllib.parse import urlparse
+from typing import List, Optional, Tuple 
 
 import alignment.bigstitcher as bigstitcher
-import alignment.utils as utils
+from alignment import alignment_utils
 from metrics.metric_pairwise_csv import PairwiseCSVWriter
 from metrics.metric_corr_shift import CorrAndShiftPlots
 from metrics.metric_links_grid import LinksGridPlot
@@ -83,6 +85,37 @@ def run_alignment_metrics(*, input_prefix: str, dataset_name: str, local_xml_pat
     mirror_s3_prefix_to_results(output_path, metrics_dir)
     list_results_tree(metrics_dir)
 
+def get_estimated_downsample(
+    voxel_resolution: List[float], phase_corr_res: Tuple[float] = (8.0, 8.0, 4.0)
+) -> int:
+    """
+    Estimate the multiscale level (power-of-two downsampling) such that
+    the resolution at that level is at least the phase_corr_res in all axes.
+
+    Parameters
+    ----------
+    voxel_resolution : List[float]
+        Resolution of the original image at level 0 (in XYZ order).
+    phase_corr_res : Tuple[float]
+        Target resolution for phase correlation (in XYZ order).
+
+    Returns
+    -------
+    int
+        Estimated downsample level (0 or higher).
+    """
+
+    levels = []
+    for vres, cres in zip(voxel_resolution, phase_corr_res):
+        if cres < vres:
+            raise ValueError(
+                "phase_corr_res must be greater than or equal to voxel_resolution."
+            )
+        ratio = cres / vres
+        levels.append(math.floor(math.log2(ratio)))
+
+    return max(levels)
+
 def run():
     """
     Function that runs image stitching with BigStitcher
@@ -91,6 +124,8 @@ def run():
     data_folder = Path(os.path.abspath("../data"))
     
     input_prefix = sys.argv[1]
+    aligned_xml_path = sys.argv[7]
+    
     parsed = urlparse(str(input_prefix))
     bucket = parsed.netloc
     if bucket != "aind-open-data":
@@ -99,57 +134,83 @@ def run():
             f"(got '{bucket}'). input_prefix={input_prefix}"
         )
 
-    # If proteomics dataset
-    max_error = sys.argv[2]
-    relative_threshold = sys.argv[3]
-    absolute_threshold = sys.argv[4]
+    if not aligned_xml_path:    
+        max_error = sys.argv[2]
+        if not max_error:
+            max_error = 3.0
 
-    # If HCR dataset
-    max_shift = sys.argv[5]
-    min_r = sys.argv[6]
+        relative_threshold = sys.argv[3]
+        if not relative_threshold:
+            relative_threshold = 2.5
+        
+        absolute_threshold = sys.argv[4]
+        if not absolute_threshold:
+            absolute_threshold = 3.5
+        
+        voxel_resolution = alignment_utils.fetch_voxel_resolution(input_prefix)
+        res_for_transforms = (0.76, 0.76, 3.4)
 
-    # Grab unaligned xml from s3 and put into results folder 
-    xml_prefix = input_prefix + "image_tile_alignment/"
-    source_xml_s3 = utils.pick_latest_bigstitcher_xml_s3(xml_prefix)
-    local_xml_path = results_folder / "bigstitcher.xml"
-    utils.download_s3_to_local(source_xml_s3, local_xml_path)
+        downsampled_scale = 2
+        max_shift = sys.argv[5]
+        if not max_shift:
+            max_shift = 160 // (downsampled_scale + 1)
+        
+        min_r = sys.argv[6]
+        if not min_r:
+            min_r = 0.6
+        
+        # Optional param to align on other channel
+        align_on_ch = sys.argv[8]
+        
+        # Grab unaligned xml from s3 and put into results folder 
+        xml_prefix = input_prefix + "image_tile_alignment/"
+        source_xml_s3 = alignment_utils.pick_latest_bigstitcher_xml_s3(xml_prefix)
+        local_xml_path = results_folder / "bigstitcher.xml"
+        alignment_utils.download_s3_to_local(source_xml_s3, local_xml_path, align_on_ch)
 
-    # Gather inputs from s3
-    voxel_resolution = utils.fetch_voxel_resolution(input_prefix)
-    stitching_channel, other_channels = utils.fetch_channels(input_prefix)
-    dataset_name = utils.fetch_dataset_name(input_prefix)
+        # Gather inputs from s3
+        stitching_channel, other_channels = alignment_utils.fetch_channels(input_prefix, align_on_ch)
+        dataset_name = alignment_utils.fetch_dataset_name(input_prefix)
 
-    # Create local output paths
-    path_to_data = f"{input_prefix}image_radial_correction"
-    output_json_file = results_folder.joinpath(f"{dataset_name}_tile_metadata.json")
-    stitching_channel_path = data_folder.joinpath(f"processed")
+        # Create local output paths
+        path_to_data = f"{input_prefix}image_radial_correction"
+        output_json_file = results_folder.joinpath(f"{dataset_name}_tile_metadata.json")
+        stitching_channel_path = data_folder.joinpath(f"processed")
 
-    # Computing image transformations with bigtstitcher
-    bigstitcher.main(
-        path_to_data = path_to_data,
-        input_prefix = input_prefix,
-        local_xml_path = local_xml_path,
-        acquisition_path = input_prefix + "acquisition.json",
-        channel_wavelength = stitching_channel,
-        stitching_channel_path=stitching_channel_path,
-        voxel_resolution=voxel_resolution,
-        output_json_file=output_json_file,
-        results_folder=results_folder,
-        dataset_name=dataset_name,
-        max_error = max_error,
-        relative_threshold = relative_threshold,
-        absolute_threshold = absolute_threshold,
-        max_shift = max_shift,
-        min_r = min_r,
-        res_for_transforms=(0.76, 0.76, 3.4),
-        scale_for_transforms=4
-    )
+        processing_params = {
+            "path_to_data": path_to_data,
+            "input_prefix": input_prefix,
+            "local_xml_path": str(local_xml_path),
+            "acquisition_path": input_prefix + "acquisition.json",
+            "channel_wavelength": stitching_channel,
+            "stitching_channel_path": str(stitching_channel_path),
+            "voxel_resolution": voxel_resolution,
+            "output_json_file": str(output_json_file),
+            "results_folder": str(results_folder),
+            "dataset_name": dataset_name,
+            "max_error": max_error,
+            "relative_threshold": relative_threshold,
+            "absolute_threshold": absolute_threshold,
+            "max_shift": max_shift,
+            "min_r": min_r,
+            "res_for_transforms": list(res_for_transforms),
+            "scale_for_transforms": downsampled_scale,
+        }
 
-    # Save dropped links locally for metrics eval (always none for non-prot)
-    utils.write_solver_removed_links_csv(results_folder)
+        # Computing image transformations with bigtstitcher
+        bigstitcher.main(processing_params)
+
+        # Save dropped links locally for metrics eval (always none for non-prot)
+        alignment_utils.write_solver_removed_links_csv(results_folder)
+    
+    else:
+        local_xml_path = results_folder / "bigstitcher.xml"
+        alignment_utils.download_s3_to_local(aligned_xml_path, local_xml_path)
+        stitching_channel, other_channels = alignment_utils.fetch_channels(input_prefix)
+        dataset_name = alignment_utils.fetch_dataset_name(input_prefix)
 
     # Update new alignment output xmls to s3
-    utils.publish_bigstitcher_xmls(
+    alignment_utils.publish_bigstitcher_xmls(
         input_prefix_s3=input_prefix,
         local_xml_path=local_xml_path,
         results_folder=results_folder,

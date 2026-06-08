@@ -9,8 +9,6 @@ import boto3
 from botocore.exceptions import ClientError
 from packaging import version
 import xml.etree.ElementTree as ET 
-from aind_data_schema.core.processing import (DataProcess, PipelineProcess,
-                                              Processing)
 
 """
 Utility functions
@@ -161,23 +159,42 @@ def fetch_json_from_s3(dataset_prefix_s3: str, filename: str) -> dict:
     except Exception as e:
         raise ValueError(f"Failed to parse JSON from {s3_uri}: {e}") from e
 
-def fetch_channels(dataset_prefix_s3: str) -> Tuple[str, list[str]]:
-    """
-    Fetch processing_manifest.json from S3 and return:
-      - stitching channel (pipeline_processing.stitching.channel)
-      - other stitching channels (pipeline_processing.stitching_channels minus stitching channel)
-    """
+def fetch_channels(dataset_prefix_s3: str, align_on_ch: str = "") -> Tuple[str, list[str]]:
     manifest = fetch_json_from_s3(dataset_prefix_s3, "processing_manifest.json")
     pp = manifest["pipeline_processing"]
 
-    stitch_ch = str(pp["stitching"]["channel"])
-    all_ch = [str(x) for x in pp.get("stitching_channels", [])]
+    original_stitch_ch = str(pp["stitching"]["channel"])
+    align_on_ch = str(align_on_ch).strip() if align_on_ch else ""
 
-    # If stitching_channels is missing, fall back to just the stitch channel
-    if not all_ch:
-        all_ch = [stitch_ch]
+    raw_channels = pp.get("radial_correction", {}).get("channels", [])
+    if not raw_channels:
+        raise ValueError(
+            "processing_manifest.json missing pipeline_processing.radial_correction.channels; "
+            "cannot determine full channel list for single-channel XML generation."
+        )
 
+    all_ch = [str(ch) for ch in raw_channels]
+
+    if original_stitch_ch not in all_ch:
+        all_ch.insert(0, original_stitch_ch)
+
+    stitch_ch = align_on_ch if align_on_ch else original_stitch_ch
+
+    if stitch_ch not in all_ch:
+        all_ch.insert(0, stitch_ch)
+
+    # Stable de-dupe
+    seen = set()
+    all_ch = [ch for ch in all_ch if not (ch in seen or seen.add(ch))]
+
+    # Important: exclude the active stitching channel
     other_ch = [ch for ch in all_ch if ch != stitch_ch]
+
+    # print(f"[XML] original stitching channel: {original_stitch_ch}")
+    # print(f"[XML] active stitching channel: {stitch_ch}")
+    # print(f"[XML] all channels: {all_ch}")
+    # print(f"[XML] other channels: {other_ch}")
+
     return stitch_ch, other_ch
 
 def get_resolution_schema_2(acquisition_config: dict) -> Tuple[float]:
@@ -247,7 +264,30 @@ def fetch_dataset_name(dataset_prefix_s3: str) -> str:
     desc = fetch_json_from_s3(dataset_prefix_s3, "data_description.json")
     return desc["project_name"]
 
-def download_s3_to_local(s3_uri: str, local_path: Path) -> None:
+def rewrite_xml_channel(local_path: Path, align_on_ch: str) -> None:
+    align_on_ch = str(align_on_ch).strip()
+    if not align_on_ch:
+        return
+
+    text = local_path.read_text(encoding="utf-8")
+
+    # Replace filename/path/name occurrences like:
+    text = re.sub(r"_ch_\d+", f"_ch_{align_on_ch}", text)
+
+    # Replace XML channel values:
+    text = re.sub(r"(<channel>)\d+(</channel>)", rf"\g<1>{align_on_ch}\g<2>", text)
+
+    # More targeted replacement for the channel Attributes block.
+    text = re.sub(
+        r'(<Attributes name="channel">\s*<Channel>\s*<id>)\d+(</id>\s*<name>)\d+(</name>)',
+        rf"\g<1>{align_on_ch}\g<2>{align_on_ch}\g<3>",
+        text,
+        flags=re.DOTALL,
+    )
+
+    local_path.write_text(text, encoding="utf-8")
+
+def download_s3_to_local(s3_uri: str, local_path: Path, align_on_ch: str) -> None:
     u = urlparse(s3_uri)
     if u.scheme != "s3" or not u.netloc:
         raise ValueError(f"Not a valid s3:// URI: {s3_uri}")
@@ -262,6 +302,8 @@ def download_s3_to_local(s3_uri: str, local_path: Path) -> None:
         s3.download_file(bucket, key, str(local_path))
     except ClientError as e:
         raise FileNotFoundError(f"Failed to download {s3_uri}: {e}") from e
+    
+    rewrite_xml_channel(local_path, align_on_ch)
 
 def upload_local_to_s3(local_path: Path, s3_uri: str) -> None:
     u = urlparse(s3_uri)
@@ -345,33 +387,3 @@ def create_folder(dest_dir: PathLike, verbose: Optional[bool] = False) -> None:
             if e.errno != os.errno.EEXIST:
                 raise
 
-def generate_processing(
-    data_processes: List[DataProcess],
-    dest_processing: str,
-    input_prefix: str,
-    processor_full_name: str,
-    pipeline_version: str,
-):
-    """
-    Generates data description for the output folder.
-    """
-    # flake8: noqa: E501
-    processing_pipeline = PipelineProcess(
-        data_processes=data_processes,
-        processor_full_name=processor_full_name,
-        pipeline_version=pipeline_version,
-        pipeline_url="https://github.com/AllenNeuralDynamics/aind-smartspim-pipeline",
-        note="Metadata for the stitching step, it does not include stitching compute time.",
-    )
-
-    processing = Processing(
-        processing_pipeline=processing_pipeline,
-        notes="This processing only contains metadata about fusion \
-            and needs to be compiled with other steps at the end",
-    )
-
-    processing.write_standard_file(output_directory=dest_processing)
-
-    local_processing_json = Path(dest_processing) / "processing.json"
-    dst_s3 = input_prefix + "image_tile_alignment/processing.json"
-    upload_local_to_s3(local_processing_json, dst_s3)

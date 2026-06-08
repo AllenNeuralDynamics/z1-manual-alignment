@@ -52,17 +52,19 @@ RUN pip3 install --no-cache-dir \
     dask==2024.1.1 \
     dask-image==2023.8.1 \
     numpy==1.26.3 \
-    pathlib==1.0.1 \
     psutil==5.9.5 \
     regex==2023.10.3 \
     toml==0.10.2 \
     zarr==2.16.1 \
     natsort==8.4.0 \
     matplotlib==3.9.2 \
-    aind-data-schema==1.4.0 \
     numcodecs==0.13.1 \
     boto3 \
-    xmltodict
+    xmltodict \
+    aind-data-schema==1.4.0 
+
+# aind-data-schema==2.7.1 \
+# aind-data-schema-models==5.7.2
 
 # Copy and run post-install script
 COPY postInstall /
