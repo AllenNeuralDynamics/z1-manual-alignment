@@ -6,8 +6,7 @@ from urllib.parse import urlparse
 from typing import List, Optional, Tuple 
 
 import alignment.bigstitcher as bigstitcher
-import alignment.utils as utils
-from utils import generate_processing_json
+from alignment import alignment_utils
 from metrics.metric_pairwise_csv import PairwiseCSVWriter
 from metrics.metric_corr_shift import CorrAndShiftPlots
 from metrics.metric_links_grid import LinksGridPlot
@@ -148,7 +147,7 @@ def run():
         if not absolute_threshold:
             absolute_threshold = 3.5
         
-        voxel_resolution = utils.fetch_voxel_resolution(input_prefix)
+        voxel_resolution = alignment_utils.fetch_voxel_resolution(input_prefix)
         res_for_transforms = (0.76, 0.76, 3.4)
 
         downsampled_scale = 2
@@ -165,13 +164,13 @@ def run():
         
         # Grab unaligned xml from s3 and put into results folder 
         xml_prefix = input_prefix + "image_tile_alignment/"
-        source_xml_s3 = utils.pick_latest_bigstitcher_xml_s3(xml_prefix)
+        source_xml_s3 = alignment_utils.pick_latest_bigstitcher_xml_s3(xml_prefix)
         local_xml_path = results_folder / "bigstitcher.xml"
-        utils.download_s3_to_local(source_xml_s3, local_xml_path, align_on_ch)
+        alignment_utils.download_s3_to_local(source_xml_s3, local_xml_path, align_on_ch)
 
         # Gather inputs from s3
-        stitching_channel, other_channels = utils.fetch_channels(input_prefix, align_on_ch)
-        dataset_name = utils.fetch_dataset_name(input_prefix)
+        stitching_channel, other_channels = alignment_utils.fetch_channels(input_prefix, align_on_ch)
+        dataset_name = alignment_utils.fetch_dataset_name(input_prefix)
 
         # Create local output paths
         path_to_data = f"{input_prefix}image_radial_correction"
@@ -202,26 +201,16 @@ def run():
         bigstitcher.main(processing_params)
 
         # Save dropped links locally for metrics eval (always none for non-prot)
-        utils.write_solver_removed_links_csv(results_folder)
-
-        xml_path = xml_prefix + "bigstitcher.xml"
-        processing_json_s3 = xml_prefix + "processing.json"
-
-        generate_processing_json.main(
-            xml_path=xml_path,
-            zarr_location=xml_prefix,
-            processing_json_s3=processing_json_s3,
-            parameters=processing_params,
-        )
+        alignment_utils.write_solver_removed_links_csv(results_folder)
     
     else:
         local_xml_path = results_folder / "bigstitcher.xml"
-        utils.download_s3_to_local(aligned_xml_path, local_xml_path)
-        stitching_channel, other_channels = utils.fetch_channels(input_prefix)
-        dataset_name = utils.fetch_dataset_name(input_prefix)
+        alignment_utils.download_s3_to_local(aligned_xml_path, local_xml_path)
+        stitching_channel, other_channels = alignment_utils.fetch_channels(input_prefix)
+        dataset_name = alignment_utils.fetch_dataset_name(input_prefix)
 
     # Update new alignment output xmls to s3
-    utils.publish_bigstitcher_xmls(
+    alignment_utils.publish_bigstitcher_xmls(
         input_prefix_s3=input_prefix,
         local_xml_path=local_xml_path,
         results_folder=results_folder,

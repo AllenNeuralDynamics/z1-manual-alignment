@@ -61,8 +61,10 @@ RUN pip3 install --no-cache-dir \
     numcodecs==0.13.1 \
     boto3 \
     xmltodict \
-    aind-data-schema==2.7.1 \
-    aind-data-schema-models==5.7.2
+    aind-data-schema==1.4.0 
+
+# aind-data-schema==2.7.1 \
+# aind-data-schema-models==5.7.2
 
 # Copy and run post-install script
 COPY postInstall /

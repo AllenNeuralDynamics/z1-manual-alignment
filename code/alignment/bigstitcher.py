@@ -1,4 +1,3 @@
-import alignment.utils as utils
 import json
 import math
 import os
@@ -6,6 +5,10 @@ import subprocess
 from pathlib import Path
 from time import time
 from typing import List, Optional, Tuple 
+
+from alignment import alignment_utils
+from util import utils
+from aind_data_schema.core.processing import DataProcess, ProcessName
 
 """
 Computes stitching transformations using
@@ -51,7 +54,7 @@ def main(processing_params):
 
     start_time = time()
     metadata_folder = results_folder.joinpath("metadata")
-    utils.create_folder(str(metadata_folder))
+    alignment_utils.create_folder(str(metadata_folder))
 
     is_proteomics = False
     if dataset_name == "PLACE": 
@@ -151,6 +154,30 @@ def main(processing_params):
 
     output_big_stitcher_json = (
         f"{results_folder}/{dataset_name}_stitch_channel_{channel_wavelength}_params.json"
+    )
+
+    data_processes = []
+    data_processes.append(
+        DataProcess(
+            name=ProcessName.IMAGE_TILE_ALIGNMENT,
+            software_version="e112363",
+            start_date_time=start_time,
+            end_date_time=end_time,
+            input_location=str(input_prefix),
+            output_location=str(output_big_stitcher_json),
+            outputs={"output_file": str(output_big_stitcher_json)},
+            code_url="",
+            code_version="1.2.7",
+            parameters={"stitching": stitching_command, "global_optimization": global_opt_command},
+            notes="Running stitching and global optimization separately",
+        )
+    )
+
+    utils.generate_processing(
+        data_processes=data_processes,
+        dest_processing=metadata_folder,
+        processor_full_name="Sean Fite",
+        pipeline_version="3.0.0",
     )
 
 if __name__ == "__main__":
