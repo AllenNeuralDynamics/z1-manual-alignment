@@ -2,88 +2,74 @@ import os
 from pathlib import Path
 import sys
 import math
+import boto3
 from urllib.parse import urlparse
 from typing import List, Optional, Tuple 
 
+from metrics.run_metrics import RunMetrics
 import alignment.bigstitcher as bigstitcher
 from alignment import alignment_utils
-from metrics.metric_pairwise_csv import PairwiseCSVWriter
-from metrics.metric_corr_shift import CorrAndShiftPlots
-from metrics.metric_links_grid import LinksGridPlot
-from metrics.metric_dropped_links_report import DroppedLinksReport
-from metrics.utils import (
-    mirror_s3_prefix_to_results,
-    list_results_tree,
-    _safe_read_json,
-    create_s3_client, 
-    load_xml_root,
-    get_nominal_grid,
-    extract_pairwise_rows,
-    load_dropped_pairs,
-) 
 
 """
 Manual BigStitcher alignment capsule, replacing existing alignment output
 """
 
-def run_alignment_metrics(*, input_prefix: str, dataset_name: str, local_xml_path: Path,
-    results_folder: Path, xy_thres: float = 2.0) -> None:
+def list_results_tree(results_dir: Path) -> None:
+    """
+    Recursively list everything under /results so we can see what QC produced.
+    """
+    print(f"\n📂 Contents of {results_dir}:")
+    if not results_dir.exists():
+        print("   (directory does not exist)")
+        return
 
-    # optional dropped-links csv produced earlier in this capsule
-    dropped_csv_path = results_folder / "solver_removed_links.csv"
-    dropped_csv_arg = str(dropped_csv_path) if dropped_csv_path.exists() else None
-    output_path = input_prefix.rstrip("/") + "/image_tile_alignment/alignment_metrics"
+    count = 0
+    for p in sorted(results_dir.rglob("*")):
+        if p.is_file():
+            rel = p.relative_to(results_dir)
+            size = p.stat().st_size
+            print(f"   - {rel} ({size} bytes)")
+            count += 1
 
-    s3 = create_s3_client()
-    root = load_xml_root(str(local_xml_path), s3)
-    setup_to_grid = get_nominal_grid(root)
-    rows = extract_pairwise_rows(root, xy_thres)
-    rows_sorted = sorted(rows, key=lambda r: r[5], reverse=True)
-
-    dropped_pairs = None
-    pair_errors = {}
-
-    if dropped_csv_arg:
-        dropped_pairs_loaded, pair_errors_loaded = load_dropped_pairs(dropped_csv_arg)
-        if dropped_pairs_loaded:
-            dropped_pairs = dropped_pairs_loaded
-            pair_errors = pair_errors_loaded
-            print(f"✅ Using {len(dropped_pairs)} dropped pair(s) for QC annotations.")
-        else:
-            print("⚠️ No valid dropped pairs found; continuing without annotations.")
+    if count == 0:
+        print("   (no files found)")
     else:
-        print("ℹ️ No solver_removed_links.csv found; continuing without annotations.")
+        print(f"   → Total files: {count}")
 
-    csv_writer = PairwiseCSVWriter(output_path, s3)
-    corr_shift = CorrAndShiftPlots(output_path, s3)
-    links_grid = LinksGridPlot(output_path, s3)
-    dropped_report = DroppedLinksReport(output_path, s3)
+def mirror_s3_prefix_to_results(s3_prefix: str, results_dir: Path) -> None:
+    """
+    Mirror all S3 objects under `s3_prefix` into the local `/results` directory,
+    preserving relative paths, and print what we downloaded.
+    """
+    parsed = urlparse(s3_prefix)
+    bucket = parsed.netloc
+    prefix = parsed.path.lstrip("/")
 
-    csv_uri = csv_writer.write(rows_sorted, dropped_pairs)
-    corr_png_uri, shifts_all_png_uri, shifts_kept_png_uri = corr_shift.make_plots(
-        rows_sorted, dropped_pairs
-    )
-    links_grid_png_uri = links_grid.make_plot(rows, setup_to_grid, dropped_pairs)
+    print(f"🔍 Mirroring S3 prefix: s3://{bucket}/{prefix} -> {results_dir}")
 
-    dropped_txt_uri = None
-    if dropped_pairs:
-        dropped_txt_uri = dropped_report.write(rows_sorted, dropped_pairs, pair_errors)
+    s3 = boto3.client("s3")
+    paginator = s3.get_paginator("list_objects_v2")
+    total_files = 0
 
-    print("QC done.")
-    print("  CSV  :", csv_uri)
-    print("  Plots:")
-    print("    corr vs rank   :", corr_png_uri)
-    print("    shifts (all)   :", shifts_all_png_uri)
-    print("    shifts (kept)  :", shifts_kept_png_uri)
-    print("    links (grid)   :", links_grid_png_uri)
-    if dropped_txt_uri:
-        print("    dropped link metrics:", dropped_txt_uri)
+    for page in paginator.paginate(Bucket=bucket, Prefix=prefix):
+        contents = page.get("Contents", [])
+        if not contents:
+            continue
 
-    # pull QC outputs into /results
-    metrics_dir = results_folder / "metrics"
-    metrics_dir.mkdir(parents=True, exist_ok=True)
-    mirror_s3_prefix_to_results(output_path, metrics_dir)
-    list_results_tree(metrics_dir)
+        for obj in contents:
+            key = obj["Key"]
+            if key.endswith("/"):
+                continue
+
+            rel = key[len(prefix):].lstrip("/")
+            local_path = results_dir / rel
+            local_path.parent.mkdir(parents=True, exist_ok=True)
+
+            print(f"📥 Downloading: s3://{bucket}/{key} -> {local_path}")
+            s3.download_file(bucket, key, str(local_path))
+            total_files += 1
+
+    print(f"✅ Finished mirroring {total_files} file(s) from {s3_prefix} into {results_dir}")
 
 def get_estimated_downsample(
     voxel_resolution: List[float], phase_corr_res: Tuple[float] = (8.0, 8.0, 4.0)
@@ -124,6 +110,7 @@ def run():
     data_folder = Path(os.path.abspath("../data"))
     
     input_prefix = sys.argv[1]
+
     aligned_xml_path = sys.argv[7]
     
     parsed = urlparse(str(input_prefix))
@@ -202,6 +189,20 @@ def run():
 
         # Save dropped links locally for metrics eval (always none for non-prot)
         alignment_utils.write_solver_removed_links_csv(results_folder)
+
+        dropped_csv_path = results_folder / "solver_removed_links.csv"
+        xml_path = results_folder / "bigstitcher.xml"
+        metrics_output_path = f"{input_prefix.rstrip('/')}/image_tile_alignment/alignment_metrics"
+
+        run_metrics = RunMetrics(
+            dropped_csv_path=dropped_csv_path,
+            xml_path=xml_path,
+            output_path=metrics_output_path,
+        )
+        run_metrics.run_alignment_metrics()
+
+        mirror_s3_prefix_to_results(metrics_output_path, results_folder)
+        list_results_tree(results_folder)
     
     else:
         local_xml_path = results_folder / "bigstitcher.xml"
@@ -216,15 +217,6 @@ def run():
         results_folder=results_folder,
         stitching_channel=stitching_channel,
         other_channels=other_channels,
-    )
-
-    # Generate alignment metrics and save to s3
-    run_alignment_metrics(
-        input_prefix=input_prefix,
-        dataset_name=dataset_name,
-        local_xml_path=local_xml_path,
-        results_folder=results_folder,
-        xy_thres=2.0,
     )
 
 if __name__ == "__main__":

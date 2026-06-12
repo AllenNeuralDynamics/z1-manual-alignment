@@ -1,6 +1,12 @@
-# Big Stitcher Alignment capsule for z1
+# Big Stitcher alignment capsule for z1
 
-This capsule is used to re-run Big Stitcher Phase Correlation on an aligned processed prefixf
+**This capsule is used to either:**
+
+- Re-run Big Stitcher phase correlation and solver because you want to try different params
+
+- You want to run alignment again on another channel
+
+- You have an aligned XML you want to use for fusion
 
 <br>
 
