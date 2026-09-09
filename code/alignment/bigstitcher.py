@@ -83,6 +83,8 @@ def main(processing_params):
             str(local_xml_path),
             "--downsampling",
             f"{downsampled_scale},{downsampled_scale},{downsampled_scale}",
+            "--minR",
+            str(0.0)
         ]
     else:
         stitching_command = [
