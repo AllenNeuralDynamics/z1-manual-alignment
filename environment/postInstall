@@ -12,8 +12,8 @@ N5_AWS_TAG="255389c" # March 10th 2025
 BUILD_FOLDER="/home"
 ls -d $BUILD_FOLDER/
 
-# CORES=16
-# MEM_GB=128
+CORES="${BIGSTITCHER_CORES:-4}"
+MEM_GB="${BIGSTITCHER_MEM_GB:-128}"
 
 # Create the BUILD_FOLDER if it does not exist
 mkdir -p "$BUILD_FOLDER"
@@ -48,7 +48,7 @@ echo "$BUILD_FOLDER/$N5_AWS_FOLDER"
 mvn clean package -U -P fatjar
 # ./install -t $CORES -m $MEM_GB
 chmod +x install
-./install
+./install -t "$CORES" -m "$MEM_GB"
 
 ls -d $BUILD_FOLDER/
 

@@ -287,8 +287,31 @@ def rewrite_xml_channel(local_path: Path, align_on_ch: str) -> None:
 
     local_path.write_text(text, encoding="utf-8")
 
-def download_s3_to_local(s3_uri: str, local_path: Path, align_on_ch: str) -> None:
+# def download_s3_to_local(s3_uri: str, local_path: Path, align_on_ch: str) -> None:
+#     u = urlparse(s3_uri)
+#     if u.scheme != "s3" or not u.netloc:
+#         raise ValueError(f"Not a valid s3:// URI: {s3_uri}")
+
+#     bucket = u.netloc
+#     key = u.path.lstrip("/")
+
+#     local_path.parent.mkdir(parents=True, exist_ok=True)
+
+#     s3 = S3
+#     try:
+#         s3.download_file(bucket, key, str(local_path))
+#     except ClientError as e:
+#         raise FileNotFoundError(f"Failed to download {s3_uri}: {e}") from e
+    
+#     rewrite_xml_channel(local_path, align_on_ch)
+
+def download_s3_to_local(
+    s3_uri: str,
+    local_path: Path,
+    align_on_ch: str = "",
+) -> None:
     u = urlparse(s3_uri)
+
     if u.scheme != "s3" or not u.netloc:
         raise ValueError(f"Not a valid s3:// URI: {s3_uri}")
 
@@ -297,13 +320,15 @@ def download_s3_to_local(s3_uri: str, local_path: Path, align_on_ch: str) -> Non
 
     local_path.parent.mkdir(parents=True, exist_ok=True)
 
-    s3 = S3
     try:
-        s3.download_file(bucket, key, str(local_path))
+        S3.download_file(bucket, key, str(local_path))
     except ClientError as e:
-        raise FileNotFoundError(f"Failed to download {s3_uri}: {e}") from e
-    
-    rewrite_xml_channel(local_path, align_on_ch)
+        raise FileNotFoundError(
+            f"Failed to download {s3_uri}: {e}"
+        ) from e
+
+    if align_on_ch:
+        rewrite_xml_channel(local_path, align_on_ch)
 
 def upload_local_to_s3(local_path: Path, s3_uri: str) -> None:
     u = urlparse(s3_uri)
