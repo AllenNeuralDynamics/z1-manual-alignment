@@ -6,10 +6,6 @@ LABEL maintainer="Sean Fite <sean.fite@alleninstitute.org>"
 
 ARG DEBIAN_FRONTEND=noninteractive
 
-ARG AWS_ACCESS_KEY_ID
-ARG AWS_DEFAULT_REGION
-ARG AWS_SECRET_ACCESS_KEY
-
 ENV AWS_REGION=us-west-2
 ENV JAVA_OPTS="-Djava.awt.headless=true"
 ENV HOME="/root"
